@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>진행자 로그인 · 개발팀 도전 골든벨</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Nanum+Pen+Script&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="/static/style.css">
+</head><body>
+<div class="app">
+  <section class="card login">
+    <h2>진행자 <span>로그인</span></h2>
+    <form method="post" action="/host/login">
+      <input type="password" name="password" placeholder="비밀번호" autocomplete="current-password" autofocus required>
+      {% if error %}<p class="status err">{{ error }}</p>{% endif %}
+      <button class="cbtn primary" type="submit">들어가기</button>
+    </form>
+  </section>
+</div>
+</body></html>

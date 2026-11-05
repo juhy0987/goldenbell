@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>개발팀 도전 골든벨</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Nanum+Pen+Script&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="/static/style.css">
+</head><body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6c2.2 0 4 1.8 4 4v1.4c9 1.9 15 9.8 15 19.6v10l5 7H8l5-7V31c0-9.8 6-17.7 15-19.6V10c0-2.2 1.8-4 4-4z" fill="#e6b84a"/><circle cx="32" cy="54" r="5" fill="#a97c22"/><path d="M20 30c0-6 4-10 9-11" stroke="#fff3c9" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+      <div><h1>개발팀 도전 골든벨</h1><small>참여자 화면</small></div>
+    </div>
+    <div class="spacer"></div>
+    <span class="live" id="live"><i></i><span id="liveText">연결 중</span></span>
+  </header>
+
+  <div class="play">
+    <section class="card" id="pJoin" hidden>
+      <h2>우리 팀을 <span>골라주세요</span></h2>
+      <p class="status">팀 대표 한 명만 답안을 제출하면 됩니다. 다른 사람이 쓰고 있는 팀은 고를 수 없습니다.</p>
+      <div class="teampick" id="teamPick"></div>
+    </section>
+
+    <section class="card" id="pMain" hidden>
+      <div class="ptop">
+        <span class="who" id="pWho"></span>
+        <button class="tbtn" id="btnLeave" type="button">팀 변경</button>
+        <span class="spacer"></span>
+        <span class="ptime" id="pTime" hidden></span>
+      </div>
+      <div id="pWait" class="wait">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6c2.2 0 4 1.8 4 4v1.4c9 1.9 15 9.8 15 19.6v10l5 7H8l5-7V31c0-9.8 6-17.7 15-19.6V10c0-2.2 1.8-4 4-4z" fill="#e6b84a"/><circle cx="32" cy="54" r="5" fill="#a97c22"/></svg>
+        사회자가 다음 문제를 고르고 있어요.
+      </div>
+      <div id="pQ" hidden style="display:flex;flex-direction:column;gap:14px">
+        <div class="qhead"><span class="chip" id="pChip"></span><span class="pts" id="pNo"></span></div>
+        <p class="pq" id="pText"></p>
+        <form id="pForm" style="display:flex;flex-direction:column;gap:12px">
+          <div class="slate">
+            <label for="pAnswer">우리 팀 답</label>
+            <textarea id="pAnswer" maxlength="40" rows="2" autocomplete="off" placeholder="여기에 답을 쓰세요"></textarea>
+            <div class="count" id="pCount">0 / 40</div>
+          </div>
+          <button class="cbtn primary" id="pSubmit" type="submit">제출하기</button>
+          <p class="status" id="pStatus"></p>
+        </form>
+        <div class="verdict" id="pVerdict" hidden></div>
+      </div>
+    </section>
+
+    <section class="card" id="pBoard" hidden>
+      <h2 style="font-size:1.2rem">점수판 <small id="pProg" class="status"></small></h2>
+      <ul class="teams" id="playTeams"></ul>
+    </section>
+  </div>
+</div>
+<script src="/static/common.js"></script>
+<script src="/static/play.js"></script>
+</body></html>

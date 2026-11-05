@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>진행자 · 개발팀 도전 골든벨</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Nanum+Pen+Script&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="/static/style.css">
+</head><body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6c2.2 0 4 1.8 4 4v1.4c9 1.9 15 9.8 15 19.6v10l5 7H8l5-7V31c0-9.8 6-17.7 15-19.6V10c0-2.2 1.8-4 4-4z" fill="#e6b84a"/><circle cx="32" cy="54" r="5" fill="#a97c22"/><path d="M20 30c0-6 4-10 9-11" stroke="#fff3c9" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+      <div><h1>개발팀 도전 골든벨</h1><small>진행자 화면</small></div>
+    </div>
+    <div class="spacer"></div>
+    <span class="live" id="live"><i></i><span id="liveText">연결 중</span></span>
+    <span class="kbd" id="keys"></span>
+    <button class="tbtn" id="btnFull" type="button">전체화면</button>
+    <button class="tbtn" id="btnSettings" type="button">참가 팀 · 설정</button>
+    <form class="logout" method="post" action="/host/logout"><button class="tbtn" type="submit">로그아웃</button></form>
+  </header>
+
+  <div class="main">
+    <div class="left">
+      <section class="stage" id="pickView">
+        <h2 class="pick-title"><span id="nextNo">1</span>번 문제, 어떤 분야로 갈까요?</h2>
+        <div class="cats" id="cats"></div>
+        <p class="hist-h">출제한 문제 · 눌러서 다시 열기</p>
+        <div class="hist" id="hist"></div>
+        <p class="join-note">참여자 링크는 이 서버의 첫 페이지 주소(<b id="playUrl"></b>)입니다.</p>
+      </section>
+
+      <section class="stage" id="qView" hidden aria-live="polite">
+        <div class="qhead">
+          <div class="qno" id="qno"></div>
+          <span class="chip" id="chip"></span>
+          <span class="pts" id="pts"></span>
+        </div>
+        <p class="qtext" id="qtext"></p>
+        <div class="answer-wrap">
+          <div class="board hidden-ans" id="board">
+            <div class="lbl">정답</div>
+            <div class="ans" id="ans"></div>
+            <div class="cover">정답 공개 대기</div>
+          </div>
+          <p class="note" id="note" hidden></p>
+        </div>
+        <div class="subs-head">
+          <h3>팀별 답안</h3><span class="cnt" id="subCount"></span>
+          <span class="spacer"></span>
+          <button class="tbtn" id="btnPeek" type="button">답안 펼치기</button>
+          <button class="tbtn" id="btnAuto" type="button">일치 답안 정답 처리</button>
+        </div>
+        <div class="subs" id="subs"></div>
+        <p class="hint">팀 카드를 누르면 정답 처리 / 취소됩니다. 답안은 펼치기 전이나 정답 공개 전에는 가려집니다.</p>
+      </section>
+
+      <div class="controls" id="controls" hidden>
+        <button class="cbtn" id="btnBack" type="button">← 분야 선택</button>
+        <button class="cbtn primary" id="btnReveal" type="button">정답 공개</button>
+        <div class="timer">
+          <select id="timerLen" aria-label="제한 시간">
+            <option value="10">10초</option><option value="20">20초</option><option value="30">30초</option><option value="60">60초</option><option value="90">90초</option>
+          </select>
+          <button class="cbtn" id="btnTimer" type="button">타이머 시작</button>
+          <div class="ring" id="ring">
+            <svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="26" fill="none" stroke="var(--line)" stroke-width="5"/>
+              <circle id="arc" cx="30" cy="30" r="26" fill="none" stroke="var(--brass)" stroke-width="5" stroke-linecap="round" stroke-dasharray="163.36" stroke-dashoffset="0"/></svg>
+            <div class="num" id="tnum">20</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="panel">
+      <h2>점수판 <small id="prog"></small></h2>
+      <ul class="teams" id="hostTeams"></ul>
+      <button class="cbtn primary" id="btnResult" type="button">최종 결과 발표</button>
+    </aside>
+  </div>
+</div>
+
+<div class="overlay" id="settings" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+    <h2 id="setTitle">참가 팀 · 설정</h2>
+    <div class="field"><label for="teamCount">참가 팀 수</label><input type="number" id="teamCount" min="2" max="20" style="width:90px"></div>
+    <div class="field"><label for="points">문제당 점수</label><input type="number" id="points" min="1" max="1000" style="width:90px"></div>
+    <div class="trow t thead"><span></span><span>팀 이름</span><span>대표</span><span>보너스</span><span>연결</span></div>
+    <div id="teamRows" style="display:flex;flex-direction:column;gap:6px"></div>
+    <p class="hint">보너스 칸은 감점(−)이나 가산점을 직접 넣을 때 씁니다. 팀 수를 줄이면 뒤쪽 팀이 빠집니다. 휴대폰이 꺼져 점유가 남은 팀은 해제 버튼으로 풀 수 있습니다.</p>
+    <div class="field"><label>초기화</label><button class="tbtn" id="btnReset" type="button">점수와 출제 기록 지우기</button></div>
+    <div class="confirm" id="resetConfirm" hidden>모든 점수와 출제 기록이 지워집니다. 팀 이름은 남습니다.
+      <button class="tbtn" id="btnResetYes" type="button">초기화</button><button class="tbtn" id="btnResetNo" type="button">취소</button></div>
+    <div style="display:flex;justify-content:flex-end"><button class="cbtn primary" id="btnClose" type="button">완료</button></div>
+  </div>
+</div>
+
+<div class="result" id="result" hidden>
+  <div style="width:100%">
+    <svg class="bell" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6c2.2 0 4 1.8 4 4v1.4c9 1.9 15 9.8 15 19.6v10l5 7H8l5-7V31c0-9.8 6-17.7 15-19.6V10c0-2.2 1.8-4 4-4z" fill="#e6b84a"/><circle cx="32" cy="54" r="5" fill="#a97c22"/><path d="M20 30c0-6 4-10 9-11" stroke="#fff3c9" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+    <h2>골든벨 우승</h2>
+    <p class="win" id="winner"></p>
+    <ol class="rank" id="rank"></ol>
+    <button class="cbtn primary" id="btnResultClose" type="button">닫기</button>
+  </div>
+</div>
+<script src="/static/common.js"></script>
+<script src="/static/host.js"></script>
+</body></html>
