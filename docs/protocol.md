@@ -19,6 +19,10 @@
   - `GOLDENBELL_HOST_PASSWORD` — 필수. 비어 있으면 서버가 기동하지 않는다.
   - `GOLDENBELL_DB` — sqlite 파일 경로. 기본 `goldenbell.db`.
   - `GOLDENBELL_QUESTIONS` — 문제 파일 경로. 기본 `app/questions.json`.
+  - 모르는 `GOLDENBELL_*` 환경변수가 하나라도 있으면 서버가 기동하지 않는다 (오타가 조용히 무시되지 않게).
+- 문제 파일 (JSON): `categories` `[{key,label,color}]` (분야 순서가 곧 화면 순서) 와 `questions` `[{id,cat,q,a,note}]`. `cat` 은 `categories` 의 `key` 여야 하고 `id` 는 유일해야 한다.
+  기동 때 문제 파일에 더는 없는 문제의 출제 기록 · 채점 · 답안은 버린다 (열린 문제가 사라졌으면 대기 상태로).
+- 기본값: 팀 6개 (id `t1` ~ `tN`, 이름 `N팀`) · 정답당 점수 10 · 제한 시간 20초.
 
 ## HTTP
 
@@ -53,17 +57,19 @@
 
 | 방향 | 메시지 | 설명 |
 |---|---|---|
-| S→C | `{"type":"lobby","teams":[{"id","name","player","taken"}]}` | 팀 목록과 점유 여부. 팀에 들어가지 않은 소켓에, 점유 · 해제 · 팀 목록 변경 때마다 다시 보낸다 |
+| S→C | `{"type":"lobby","teams":[{"id","name","player","taken"}]}` | 팀 목록과 점유 여부. 팀에 들어가지 않은 소켓에, 상태가 바뀔 때마다 (점유 · 해제 · 팀 목록 변경 포함) 다시 보낸다 |
 | C→S | `{"type":"join","team":"<id>"}` | 팀 점유 시도 |
 | S→C | `{"type":"joined","team":"<id>"}` 뒤에 곧바로 `state` | 성공 |
-| S→C | `error` code `team_taken` / `no_such_team` / `already_joined` | 실패 |
+| S→C | `error` code `team_taken` / `no_such_team` / `already_joined` / `bad_request` (`team` 이 문자열이 아님) | 실패 |
 | C→S | `{"type":"leave"}` | 점유를 풀고 로비로 (응답은 `lobby`) |
 | C→S | `{"type":"submit","qid":"<id>","text":"<답>"}` | 답안 제출 · 다시 제출 (덮어쓰기) |
 | S→C | `{"type":"submitted","qid","text"}` 뒤에 `state` | 제출 성공 |
-| S→C | `error` code `not_joined` / `not_open` (열린 문제 없음 또는 qid 불일치) / `locked` (공개됨 또는 시간 종료) / `empty` / `too_long` (40자 초과) | 제출 실패 |
+| S→C | `error` code `not_joined` / `not_open` (열린 문제 없음 또는 qid 불일치) / `locked` (공개됨 또는 시간 종료) / `empty` / `too_long` (40자 초과) / `bad_request` (`qid` · `text` 가 문자열이 아님) | 제출 실패 |
 | S→C | `{"type":"kicked","reason":"team_removed" \| "released"}` 뒤에 `lobby` | 진행자가 팀을 지웠거나 연결을 해제함. 점유는 풀린다 |
 
-제출 텍스트는 앞뒤 공백을 지운 뒤 판단한다. 길이는 문자 수 기준 40.
+제출 텍스트는 앞뒤 공백을 지운 뒤 판단한다. 길이는 문자 수 기준 40. `at` 은 서버 시각의 epoch 밀리초.
+
+JSON 이 아니거나 바이너리 프레임이거나 `type` 이 없거나 모르는 `type` 이면 `error` `bad_request` (연결은 유지).
 
 ### 참여자 `state`
 
@@ -82,14 +88,15 @@
 ```
 
 - `question` 은 열린 문제가 없으면 `null` (대기 화면). 있으면
-  `{"qid","no","cat","catLabel","text","revealed"}` 이고, **`revealed=true` 일 때만** `answer` · `note` · `hit` (우리 팀 정답 처리 여부) 가 붙는다.
+  `{"qid","no","cat","catLabel","text","revealed"}` (`no` 는 출제 순서, 1부터) 이고, **`revealed=true` 일 때만** `answer` · `note` · `hit` (우리 팀 정답 처리 여부) 가 붙는다.
 - `locked` — 공개됐거나 시간 종료.
 - `mySubmission` — 현재 문제에 우리 팀이 낸 답 `{"text","at"}` 또는 `null`.
 - `scoreboard` 는 순위순. 동점은 같은 순위.
 
 ## 진행자 소켓 `/ws/host`
 
-핸드셰이크 쿠키 `gb_host` 가 유효해야 한다. 아니면 accept 하지 않거나 즉시 코드 `4401` 로 닫는다. 연결 직후 서버가 `state` 를 보낸다.
+핸드셰이크 쿠키 `gb_host` 가 유효해야 한다. 아니면 accept 한 뒤 즉시 코드 `4401` 로 닫는다 (accept 전 거절은 브라우저에 코드가 보이지 않는다). 연결 직후 서버가 `state` 를 보낸다.
+로그아웃하면 같은 토큰으로 열린 진행자 소켓이 모두 `4401` 로 닫힌다.
 
 ### 진행자 → 서버
 
@@ -98,17 +105,19 @@
 | `{"type":"pick","cat":"<분야>"}` | 그 분야의 미출제 문제 중 무작위 하나를 출제 기록에 넣고 연다. 남은 문제가 없으면 `error` `category_empty` |
 | `{"type":"open","qid":"<id>"}` | 이미 출제한 문제를 다시 연다. 출제 기록에 없으면 `error` `not_used` |
 | `{"type":"back"}` | 분야 선택으로 (열린 문제 없음) |
-| `{"type":"reveal"}` | 정답 공개 ↔ 가리기 토글. 공개할 때 돌던 타이머는 남은 시간으로 멈춘다 |
-| `{"type":"timer_toggle"}` | 시작 / 일시정지 / 이어서. 남은 시간이 0 이거나 없으면 `lenSec` 로 새로 시작 |
+| `{"type":"reveal"}` | 정답 공개 ↔ 가리기 토글. 공개할 때 돌던 타이머는 남은 시간으로 멈춘다. 열린 문제가 없으면 `no_current` |
+| `{"type":"timer_toggle"}` | 시작 / 일시정지 / 이어서. 남은 시간이 0 이거나 없으면 `lenSec` 로 새로 시작. 열린 문제가 없으면 `no_current` |
 | `{"type":"timer_len","sec":20}` | 10 · 20 · 30 · 60 · 90 중 하나. 타이머 초기화 |
-| `{"type":"toggle_hit","team":"<id>"}` | 현재 문제에서 그 팀 정답 처리 ↔ 취소 |
-| `{"type":"auto_grade"}` | 현재 문제에서 정답과 일치하는 답안을 낸 팀을 모두 정답 처리 |
-| `{"type":"settings","teamCount":6,"points":10}` | 둘 다 선택. 팀 수 2 ~ 20, 점수 1 ~ 1000. 팀 수를 줄이면 뒤쪽 팀이 빠지고 그 팀 점유 소켓은 `kicked team_removed` |
-| `{"type":"team_update","team":"<id>","name"?,"player"?,"adj"?}` | 팀 이름 (빈 값이면 `N팀`) · 대표 · 보너스 |
+| `{"type":"toggle_hit","team":"<id>"}` | 현재 문제에서 그 팀 정답 처리 ↔ 취소. 열린 문제가 없으면 `no_current`, 없는 팀이면 `no_such_team` |
+| `{"type":"auto_grade"}` | 현재 문제에서 정답과 일치하는 답안을 낸 팀을 모두 정답 처리. 열린 문제가 없으면 `no_current` |
+| `{"type":"settings","teamCount":6,"points":10}` | 둘 다 선택. 팀 수 2 ~ 20, 점수 1 ~ 1000. 팀 수를 줄이면 뒤쪽 팀이 빠지고 그 팀 점유 소켓은 `kicked team_removed`, 빠진 팀의 채점 · 답안도 지운다 (다시 늘려도 되살아나지 않는다) |
+| `{"type":"team_update","team":"<id>","name"?,"player"?,"adj"?}` | 팀 이름 (빈 값이면 `N팀`) · 대표 · 보너스. 앞뒤 공백을 지우고 이름 · 대표는 20자 초과면 `too_long`. `adj` 는 정수 -100000 ~ 100000 |
 | `{"type":"release","team":"<id>"}` | 그 팀 점유를 강제로 푼다 (휴대폰이 꺼져 소켓이 남은 경우). 소켓은 `kicked released` |
 | `{"type":"reset"}` | 점수 · 출제 기록 · 채점 · 답안 · 보너스를 지운다. 팀 이름 · 대표 · 점수 설정 · 제한 시간은 남는다 |
 
 진행자 소켓은 여러 개 열려도 된다 (모두 같은 `state` 를 받는다).
+
+진행자 오류 코드 공통: 범위 밖 값 · 없는 분야 · 정수가 아닌 `sec` · `teamCount` · `points` · `adj` (float · bool 포함) · 문자열이 아닌 `name` · `player` · 문자열이 아닌 `cat` 은 `bad_value`. 문자열이 아닌 `qid` · `team` 과 JSON 아님 · 바이너리 · `type` 없음 · 모르는 `type` 은 `bad_request`.
 
 ### 진행자 `state`
 
@@ -133,6 +142,11 @@
 - `teams` 는 설정 순서 (순위순이 아님). `connected` 는 그 팀 점유 소켓이 열려 있는지.
 - `submissions` — 현재 문제의 `{팀id: {"text","at","match"}}`. `match` 는 정답 일치 여부.
 - `correct` — 현재 문제에서 정답 처리된 팀 id 목록.
+
+## 알려진 제약
+
+- 진행자 세션은 만료가 없다. 로그아웃해야 폐기된다.
+- 쿠키 `gb_host` 에 `Secure` 가 없다 — HTTP 로 로컬 네트워크에서 운영하는 전제다. 외부에 노출하려면 TLS 와 `Secure` 가 먼저 필요하다.
 
 ## 규칙 (원본 페이지 동작 유지)
 
